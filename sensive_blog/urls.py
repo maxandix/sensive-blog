@@ -1,9 +1,11 @@
+import debug_toolbar
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
-from blog import views
 from django.urls import include, path
 
-from django.conf.urls.static import static
-from django.conf import settings
+from blog import views
+from .settings import DEBUG
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -14,3 +16,6 @@ urlpatterns = [
     path('', views.index, name='index'),
 ]
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+if DEBUG:
+    urlpatterns.append(path('__debug__/', include(debug_toolbar.urls)))
