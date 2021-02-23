@@ -13,9 +13,9 @@ INTERNAL_IPS = [
     '127.0.0.1',
 ]
 
-SECRET_KEY = env.str("SECRET_KEY", "REPLACE_ME")
+SECRET_KEY = env.str('SECRET_KEY', 'REPLACE_ME')
 
-DEBUG = env.bool("DEBUG", True)
+DEBUG = env.bool('DEBUG', True)
 
 INSTALLED_APPS = [
     'django.contrib.admin',

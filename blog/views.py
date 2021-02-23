@@ -4,28 +4,28 @@ from django.shortcuts import render
 from blog.models import Post, Tag
 
 
-def serialize_post_optimized(post):
+def serialize_post(post):
     return {
-        "title": post.title,
-        "teaser_text": post.text[:200],
-        "author": post.author.username,
-        "comments_amount": post.comments_count,
-        "image_url": post.image.url if post.image else None,
-        "published_at": post.published_at,
-        "slug": post.slug,
-        "tags": [serialize_tag(tag) for tag in post.tags.all()],
+        'title': post.title,
+        'teaser_text': post.text[:200],
+        'author': post.author.username,
+        'comments_amount': post.comments_count,
+        'image_url': post.image.url if post.image else None,
+        'published_at': post.published_at,
+        'slug': post.slug,
+        'tags': [serialize_posts_tag(tag) for tag in post.tags.all()],
         'first_tag_title': post.tags.all()[0].title,
     }
 
 
-def serialize_tag(tag):
+def serialize_posts_tag(tag):
     return {
         'title': tag.title,
         'posts_with_tag': len(tag.posts.all()),
     }
 
 
-def serialize_tag_optimized(tag):
+def serialize_tag(tag):
     return {
         'title': tag.title,
         'posts_with_tag': tag.posts_count,
@@ -35,34 +35,29 @@ def serialize_tag_optimized(tag):
 def index(request):
 
     most_popular_posts = Post.objects.popular() \
-                             .prefetch_related('author')[:5]\
-                             .prefetch_related('tags__posts') \
+                             .prefetch_related('author', 'tags__posts')[:5]\
                              .fetch_with_comments_count()
 
-    most_fresh_posts = Post.objects.prefetch_related('author') \
+    most_fresh_posts = Post.objects.prefetch_related('author', 'tags__posts') \
                            .annotate(comments_count=Count('comments')) \
-                           .prefetch_related('tags__posts') \
                            .order_by('-published_at')[:5]
 
     most_popular_tags = Tag.objects.popular()[:5]
 
     context = {
         'most_popular_posts':
-            [serialize_post_optimized(post) for post in most_popular_posts],
+            [serialize_post(post) for post in most_popular_posts],
         'page_posts':
-            [serialize_post_optimized(post) for post in most_fresh_posts],
+            [serialize_post(post) for post in most_fresh_posts],
         'popular_tags':
-            [serialize_tag_optimized(tag) for tag in most_popular_tags],
+            [serialize_tag(tag) for tag in most_popular_tags],
     }
     return render(request, 'index.html', context)
 
 
 def post_detail(request, slug):
-    post = Post.objects.prefetch_related('comments__author') \
-                       .prefetch_related('tags__posts') \
-                       .prefetch_related('likes') \
-                       .prefetch_related('author') \
-                       .get(slug=slug)
+    post = Post.objects.prefetch_related('comments__author', 'author',
+                                         'tags__posts', 'likes').get(slug=slug)
 
     serialized_comments = []
     for comment in post.comments.all():
@@ -72,33 +67,32 @@ def post_detail(request, slug):
             'author': comment.author.username,
         })
 
-    likes = post.likes.all()
+    likes_amount = post.likes.count()
 
-    related_tags = post.tags.all()
+    related_tags = post.tags.annotate(posts_count=Count('posts')).all()
 
     serialized_post = {
-        "title": post.title,
-        "text": post.text,
-        "author": post.author.username,
-        "comments": serialized_comments,
-        'likes_amount': len(likes),
-        "image_url": post.image.url if post.image else None,
-        "published_at": post.published_at,
-        "slug": post.slug,
-        "tags": [serialize_tag(tag) for tag in related_tags],
+        'title': post.title,
+        'text': post.text,
+        'author': post.author.username,
+        'comments': serialized_comments,
+        'likes_amount': likes_amount,
+        'image_url': post.image.url if post.image else None,
+        'published_at': post.published_at,
+        'slug': post.slug,
+        'tags': [serialize_tag(tag) for tag in related_tags],
     }
 
     most_popular_tags = Tag.objects.popular()[:5]
 
     most_popular_posts = Post.objects.popular() \
-                             .prefetch_related('author')[:5] \
-                             .prefetch_related('tags__posts') \
+                             .prefetch_related('author', 'tags__posts')[:5] \
                              .fetch_with_comments_count()
 
     context = {
         'post': serialized_post,
-        'popular_tags': [serialize_tag_optimized(tag) for tag in most_popular_tags],
-        'most_popular_posts': [serialize_post_optimized(post) for post in
+        'popular_tags': [serialize_tag(tag) for tag in most_popular_tags],
+        'most_popular_posts': [serialize_post(post) for post in
                                most_popular_posts],
     }
     return render(request, 'post-details.html', context)
@@ -110,20 +104,18 @@ def tag_filter(request, tag_title):
     most_popular_tags = Tag.objects.popular()[:5]
 
     most_popular_posts = Post.objects.popular() \
-                             .prefetch_related('author') \
-                             .prefetch_related('tags__posts')[:5] \
+                             .prefetch_related('author', 'tags__posts')[:5] \
                              .fetch_with_comments_count()
 
     related_posts = tag.posts \
-                       .prefetch_related('tags__posts') \
-                       .prefetch_related('author') \
+                       .prefetch_related('author', 'tags__posts') \
                        .annotate(comments_count=Count('comments'))[:20]
 
     context = {
-        "tag": tag.title,
-        'popular_tags': [serialize_tag_optimized(tag) for tag in most_popular_tags],
-        "posts": [serialize_post_optimized(post) for post in related_posts],
-        'most_popular_posts': [serialize_post_optimized(post) for post in
+        'tag': tag.title,
+        'popular_tags': [serialize_tag(tag) for tag in most_popular_tags],
+        'posts': [serialize_post(post) for post in related_posts],
+        'most_popular_posts': [serialize_post(post) for post in
                                most_popular_posts],
     }
     return render(request, 'posts-list.html', context)
