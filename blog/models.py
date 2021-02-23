@@ -16,9 +16,11 @@ class PostQuerySet(models.QuerySet):
         ids_and_comments = posts_with_comments.values_list('id', 'comments_count')
         count_for_id = dict(ids_and_comments)
 
+        posts = []
         for post in self:
             post.comments_count = count_for_id[post.id]
-        return self
+            posts.append(post)
+        return posts
 
     def year(self, year):
         return self.filter(published_at__year=year).order_by('published_at')
